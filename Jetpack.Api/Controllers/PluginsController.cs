@@ -91,11 +91,13 @@ public class PluginsController : ControllerBase {
         ZipArchiveEntry? jar_plugin_xml_entry =
           jar_archive.GetEntry("META-INF/plugin.xml");
 
-        if (jar_plugin_xml_entry != null) {
-          await using Stream jar_plugin_xml_stream =
-            jar_plugin_xml_entry.Open();
-          return await ProcessPluginXml(jar_plugin_xml_stream, memory_stream);
+        if (jar_plugin_xml_entry == null) {
+          continue;
         }
+
+        await using Stream jar_plugin_xml_stream =
+          await jar_plugin_xml_entry.OpenAsync();
+        return await ProcessPluginXml(jar_plugin_xml_stream, memory_stream);
       } catch (InvalidDataException) {
         // Not a valid zip/jar, skip it
       }
@@ -125,7 +127,7 @@ public class PluginsController : ControllerBase {
     if (root == null) {
       return BadRequest("Invalid plugin.xml: No root element.");
     }
-
+    
     PluginMetadata metadata = new() {
       id = (root.Element("id")?.Value ?? root.Element("name")?.Value) ??
            throw new InvalidOperationException("No id could be set for plugin"),
@@ -191,7 +193,14 @@ public class PluginsController : ControllerBase {
                                           string plugin_file_name) {
     string download_url =
       $"{Request.Scheme}://{Request.Host}/api/plugins/download/{plugin_file_name}";
-
+    XElement idea_version = new XElement("idea-version");
+    if (!string.IsNullOrEmpty(metadata.since_build)) {
+      idea_version.SetAttributeValue("since-build", metadata.since_build);
+    }
+    if (!string.IsNullOrEmpty(metadata.until_build)) {
+      idea_version.SetAttributeValue("until-build", metadata.until_build);
+    }
+    
     XElement xml = new(
       "plugin",
       new XAttribute("id", metadata.id),
@@ -200,11 +209,7 @@ public class PluginsController : ControllerBase {
       new XElement("name", metadata.name),
       new XElement("description", metadata.description),
       new XElement("change-notes", metadata.change_notes),
-      new XElement(
-        "idea-version",
-        new XAttribute("since-build", metadata.since_build ?? ""),
-        new XAttribute("until-build", metadata.until_build ?? "")
-      ),
+      idea_version,
       new XElement("vendor", metadata.vendor)
     );
 
