@@ -8,6 +8,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Jetpack.Api.Controllers;
 
+/// <summary>
+/// Controller responsible for handling plugin uploads, downloads, and metadata retrieval.
+/// </summary>
 [ApiController]
 [Route("api/[controller]")]
 public class PluginsController : ControllerBase {
@@ -16,17 +19,29 @@ public class PluginsController : ControllerBase {
   private readonly string plugins_bucket_;
   private readonly IStorageService storage_service_;
 
+  /// <summary>
+  /// Initializes a new instance of the <see cref="PluginsController"/> class.
+  /// </summary>
+  /// <param name="storage_service">The storage service for file operations.</param>
+  /// <param name="metadata_service">The service for managing plugin metadata.</param>
+  /// <param name="configuration">The application configuration.</param>
+  /// <exception cref="InvalidOperationException">Thrown if bucket configurations are missing.</exception>
   public PluginsController(IStorageService storage_service,
                            PluginMetadataService metadata_service,
                            IConfiguration configuration) {
     storage_service_ = storage_service;
     metadata_service_ = metadata_service;
     plugins_bucket_ = configuration["Minio:PluginsBucket"] ??
-                      throw new InvalidOperationException();
+                      throw new InvalidOperationException("Plugins bucket configuration is missing.");
     metadata_bucket_ = configuration["Minio:MetadataBucket"] ??
-                       throw new InvalidOperationException();
+                       throw new InvalidOperationException("Metadata bucket configuration is missing.");
   }
 
+  /// <summary>
+  /// Uploads a plugin file (ZIP archive).
+  /// The method extracts metadata from the plugin.xml file within the archive and stores both the plugin file and its metadata.
+  /// </summary>
+  /// <returns>An <see cref="IActionResult"/> indicating the result of the upload operation.</returns>
   [HttpPost("upload")]
   [RequestSizeLimit(100 * 1024 * 1024)] // 100 MB
   public async Task<IActionResult> UploadPlugin() {
@@ -91,6 +106,12 @@ public class PluginsController : ControllerBase {
     );
   }
 
+  /// <summary>
+  /// Processes the plugin.xml stream to extract metadata and upload the plugin.
+  /// </summary>
+  /// <param name="plugin_xml_stream">The stream containing the plugin.xml content.</param>
+  /// <param name="original_zip_stream">The stream containing the original uploaded zip file.</param>
+  /// <returns>An <see cref="IActionResult"/> indicating the result of the processing.</returns>
   private async Task<IActionResult> ProcessPluginXml(
     Stream plugin_xml_stream, MemoryStream original_zip_stream) {
     XDocument doc;
@@ -160,6 +181,12 @@ public class PluginsController : ControllerBase {
     );
   }
 
+  /// <summary>
+  /// Generates the XML string for the updatePlugins.xml file based on the plugin metadata.
+  /// </summary>
+  /// <param name="metadata">The plugin metadata.</param>
+  /// <param name="plugin_file_name">The name of the plugin file.</param>
+  /// <returns>The generated XML string.</returns>
   private string GenerateUpdatePluginsXml(PluginMetadata metadata,
                                           string plugin_file_name) {
     string download_url =
@@ -184,12 +211,21 @@ public class PluginsController : ControllerBase {
     return xml.ToString();
   }
 
+  /// <summary>
+  /// Retrieves the aggregated updatePlugins.xml containing metadata for all available plugins.
+  /// </summary>
+  /// <returns>The updatePlugins.xml content.</returns>
   [HttpGet("updatePlugins.xml")]
   public async Task<IActionResult> GetUpdatePluginsXml() {
     string xml = await metadata_service_.GetMetadataXmlAsync();
     return Content(xml, "application/xml");
   }
 
+  /// <summary>
+  /// Downloads a specific plugin file.
+  /// </summary>
+  /// <param name="file_name">The name of the file to download.</param>
+  /// <returns>The file stream if found; otherwise, NotFound.</returns>
   [HttpGet("download/{file_name}")]
   public async Task<IActionResult> DownloadPlugin(string file_name) {
     if (!await storage_service_.FileExistsAsync(plugins_bucket_, file_name)) {

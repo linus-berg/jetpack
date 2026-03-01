@@ -2,7 +2,15 @@ using Jetpack.Api.Services;
 
 namespace Jetpack.Api;
 
+/// <summary>
+/// The entry point for the Jetpack API application.
+/// </summary>
 public class Program {
+  /// <summary>
+  /// The main method that configures and runs the web application.
+  /// </summary>
+  /// <param name="args">Command-line arguments.</param>
+  /// <returns>A task representing the asynchronous operation of the application.</returns>
   public static async Task Main(string[] args) {
     WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 

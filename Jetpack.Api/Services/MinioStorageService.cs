@@ -4,9 +4,17 @@ using Minio.DataModel.Args;
 
 namespace Jetpack.Api.Services;
 
+/// <summary>
+/// Implementation of <see cref="IStorageService"/> using MinIO object storage.
+/// </summary>
 public class MinioStorageService : IStorageService {
   private readonly IMinioClient minio_client_;
 
+  /// <summary>
+  /// Initializes a new instance of the <see cref="MinioStorageService"/> class.
+  /// Configures the MinIO client using settings from the environment variables or configuration.
+  /// </summary>
+  /// <param name="configuration">The application configuration.</param>
   public MinioStorageService(IConfiguration configuration) {
     string? endpoint = Environment.GetEnvironmentVariable("MINIO_ENDPOINT") ??
                        configuration["Minio:Endpoint"];
@@ -21,7 +29,8 @@ public class MinioStorageService : IStorageService {
       configuration["Minio:Secure"] ?? "false"
     );
 
-    IMinioClient? builder = new MinioClient()
+    // Initialize the MinIO client builder
+    var builder = new MinioClient()
                             .WithEndpoint(endpoint)
                             .WithCredentials(access_key, secret_key);
 
@@ -32,6 +41,7 @@ public class MinioStorageService : IStorageService {
     minio_client_ = builder.Build();
   }
 
+  /// <inheritdoc />
   public async Task UploadFileAsync(string bucket_name, string object_name,
                                     Stream data, string content_type) {
     await EnsureBucketExistsAsync(bucket_name);
@@ -46,9 +56,11 @@ public class MinioStorageService : IStorageService {
     await minio_client_.PutObjectAsync(put_object_args);
   }
 
+  /// <inheritdoc />
   public async Task<Stream>
     GetFileAsync(string bucket_name, string object_name) {
     MemoryStream memory_stream = new();
+    // Callback to copy the stream data
     GetObjectArgs? get_object_args = new GetObjectArgs()
                                      .WithBucket(bucket_name)
                                      .WithObject(object_name)
@@ -61,6 +73,7 @@ public class MinioStorageService : IStorageService {
     return memory_stream;
   }
 
+  /// <inheritdoc />
   public async Task<bool> FileExistsAsync(string bucket_name,
                                           string object_name) {
     try {
@@ -74,6 +87,7 @@ public class MinioStorageService : IStorageService {
     }
   }
 
+  /// <inheritdoc />
   public async Task EnsureBucketExistsAsync(string bucket_name) {
     BucketExistsArgs? bucket_exists_args =
       new BucketExistsArgs().WithBucket(bucket_name);
@@ -85,6 +99,7 @@ public class MinioStorageService : IStorageService {
     }
   }
 
+  /// <inheritdoc />
   public async Task<IEnumerable<string>> ListFilesAsync(string bucket_name) {
     await EnsureBucketExistsAsync(bucket_name);
     List<string> files = new();
