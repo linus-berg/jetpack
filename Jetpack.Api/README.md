@@ -52,6 +52,7 @@ You can configure Minio settings using environment variables or `appsettings.jso
 *   `MINIO_SECURE`: Set to `true` for HTTPS, `false` for HTTP (default: `false`).
 *   `MINIO_PLUGINS_BUCKET`: The bucket name for storing plugin zip files.
 *   `MINIO_METADATA_BUCKET`: The bucket name for storing plugin metadata XML files.
+*   `MINIO_OBJECT_PREFIX`: The prefix for all objects stored in Minio (default: `jetpack`).
 
 ### appsettings.json
 
@@ -62,6 +63,7 @@ You can configure Minio settings using environment variables or `appsettings.jso
   "SecretKey": "minioadmin",
   "Secure": true,
   "PluginsBucket": "plugins-storage",
-  "MetadataBucket": "plugins-metadata"
+  "MetadataBucket": "plugins-metadata",
+  "ObjectPrefix": "jetpack"
 }
 ```

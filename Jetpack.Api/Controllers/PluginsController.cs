@@ -14,6 +14,7 @@ namespace Jetpack.Api.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 public class PluginsController : ControllerBase {
+  private readonly ILogger<PluginsController> logger_;
   private readonly string metadata_bucket_;
   private readonly PluginMetadataService metadata_service_;
   private readonly string plugins_bucket_;
@@ -25,12 +26,15 @@ public class PluginsController : ControllerBase {
   /// <param name="storage_service">The storage service for file operations.</param>
   /// <param name="metadata_service">The service for managing plugin metadata.</param>
   /// <param name="configuration">The application configuration.</param>
+  /// <param name="logger">The logger instance.</param>
   /// <exception cref="InvalidOperationException">Thrown if bucket configurations are missing.</exception>
   public PluginsController(IStorageService storage_service,
                            PluginMetadataService metadata_service,
-                           IConfiguration configuration) {
+                           IConfiguration configuration,
+                           ILogger<PluginsController> logger) {
     storage_service_ = storage_service;
     metadata_service_ = metadata_service;
+    logger_ = logger;
     plugins_bucket_ = configuration["Minio:PluginsBucket"] ??
                       throw new InvalidOperationException("Plugins bucket configuration is missing.");
     metadata_bucket_ = configuration["Minio:MetadataBucket"] ??
@@ -43,11 +47,14 @@ public class PluginsController : ControllerBase {
   /// </summary>
   /// <returns>An <see cref="IActionResult"/> indicating the result of the upload operation.</returns>
   [HttpPost("upload")]
-  [RequestSizeLimit(100 * 1024 * 1024)] // 100 MB
+  [RequestSizeLimit(500 * 1024 * 1024)] // 500 MB
   public async Task<IActionResult> UploadPlugin() {
     if (Request.ContentLength == 0) {
+      logger_.LogWarning("UploadPlugin called with empty body.");
       return BadRequest("No file uploaded.");
     }
+
+    logger_.LogInformation("Starting plugin upload. Size: {Size} bytes", Request.ContentLength);
 
     using MemoryStream memory_stream = new();
     await Request.Body.CopyToAsync(memory_stream);
@@ -60,15 +67,14 @@ public class PluginsController : ControllerBase {
     );
 
     // 1. Try to find META-INF/plugin.xml directly (simple zip structure)
-    // I don't think this will ever happen, but just in case
     ZipArchiveEntry? plugin_xml_entry = archive.GetEntry("META-INF/plugin.xml");
     if (plugin_xml_entry != null) {
+      logger_.LogDebug("Found META-INF/plugin.xml directly in zip.");
       await using Stream plugin_xml_stream = plugin_xml_entry.Open();
       return await ProcessPluginXml(plugin_xml_stream, memory_stream);
     }
 
     // 2. If not found, look for a jar file inside the zip that contains META-INF/plugin.xml
-    // Plugins are often packaged as a zip containing a folder which contains lib/*.jar
     foreach (ZipArchiveEntry entry in archive.Entries) {
       if (!entry.FullName.EndsWith(
             ".jar",
@@ -95,14 +101,17 @@ public class PluginsController : ControllerBase {
           continue;
         }
 
+        logger_.LogDebug("Found META-INF/plugin.xml inside nested jar: {JarName}", entry.FullName);
         await using Stream jar_plugin_xml_stream =
-          await jar_plugin_xml_entry.OpenAsync();
+          jar_plugin_xml_entry.Open();
         return await ProcessPluginXml(jar_plugin_xml_stream, memory_stream);
       } catch (InvalidDataException) {
         // Not a valid zip/jar, skip it
+        logger_.LogDebug("Skipping invalid jar file: {JarName}", entry.FullName);
       }
     }
 
+    logger_.LogWarning("Upload failed: META-INF/plugin.xml not found.");
     return BadRequest(
       "Invalid plugin: META-INF/plugin.xml not found in zip or nested jar."
     );
@@ -119,45 +128,61 @@ public class PluginsController : ControllerBase {
     XDocument doc;
     try {
       doc = XDocument.Load(plugin_xml_stream);
-    } catch {
+    } catch (Exception ex) {
+      logger_.LogError(ex, "Failed to parse plugin.xml.");
       return BadRequest("Invalid plugin.xml format.");
     }
 
     XElement? root = doc.Root;
     if (root == null) {
+      logger_.LogWarning("plugin.xml has no root element.");
       return BadRequest("Invalid plugin.xml: No root element.");
     }
     
-    PluginMetadata metadata = new() {
-      id = (root.Element("id")?.Value ?? root.Element("name")?.Value) ??
-           throw new InvalidOperationException("No id could be set for plugin"),
-      name = root.Element("name")?.Value ??
-             throw new InvalidOperationException("No name found for plugin"),
-      version = root.Element("version")?.Value ?? throw new VersionNotFoundException(),
-      description = root.Element("description")?.Value ?? "",
-      change_notes = root.Element("change-notes")?.Value ?? "",
-      vendor = root.Element("vendor")?.Value ?? "jetpack",
-      since_build =
-        root.Element("idea-version")?.Attribute("since-build")?.Value!,
-      until_build = root.Element("idea-version")
-                        ?.Attribute("until-build")
-                        ?.Value
-    };
+    PluginMetadata metadata;
+    try {
+        metadata = new() {
+          id = (root.Element("id")?.Value ?? root.Element("name")?.Value) ??
+               throw new InvalidOperationException("No id could be set for plugin"),
+          name = root.Element("name")?.Value ??
+                 throw new InvalidOperationException("No name found for plugin"),
+          version = root.Element("version")?.Value ?? throw new VersionNotFoundException(),
+          description = root.Element("description")?.Value ?? "",
+          change_notes = root.Element("change-notes")?.Value ?? "",
+          vendor = root.Element("vendor")?.Value ?? "jetpack",
+          since_build =
+            root.Element("idea-version")?.Attribute("since-build")?.Value!,
+          until_build = root.Element("idea-version")
+                            ?.Attribute("until-build")
+                            ?.Value
+        };
+    } catch (Exception ex) {
+        logger_.LogError(ex, "Error extracting metadata from plugin.xml");
+        return BadRequest($"Invalid plugin.xml metadata: {ex.Message}");
+    }
 
     if (string.IsNullOrEmpty(metadata.id) ||
         string.IsNullOrEmpty(metadata.version)) {
+      logger_.LogWarning("Plugin ID or Version missing in plugin.xml");
       return BadRequest("Plugin ID or Version missing in plugin.xml");
     }
+
+    logger_.LogInformation("Processing plugin: {Id} v{Version}", metadata.id, metadata.version);
 
     // Upload Plugin Zip
     string plugin_file_name = $"{metadata.id}-{metadata.version}.zip";
     original_zip_stream.Position = 0;
-    await storage_service_.UploadFileAsync(
-      plugins_bucket_,
-      plugin_file_name,
-      original_zip_stream,
-      "application/zip"
-    );
+    try {
+        await storage_service_.UploadFileAsync(
+          plugins_bucket_,
+          plugin_file_name,
+          original_zip_stream,
+          "application/zip"
+        );
+    } catch (Exception ex) {
+        logger_.LogError(ex, "Failed to upload plugin zip file to storage.");
+        return StatusCode(500, "Failed to upload plugin file.");
+    }
 
     // Upload Metadata
     // We use a unique filename for each version to avoid overwriting
@@ -165,15 +190,24 @@ public class PluginsController : ControllerBase {
     string metadata_xml = GenerateUpdatePluginsXml(metadata, plugin_file_name);
     using MemoryStream metadata_stream =
       new(Encoding.UTF8.GetBytes(metadata_xml));
-    await storage_service_.UploadFileAsync(
-      metadata_bucket_,
-      metadata_file_name,
-      metadata_stream,
-      "application/xml"
-    );
+    
+    try {
+        await storage_service_.UploadFileAsync(
+          metadata_bucket_,
+          metadata_file_name,
+          metadata_stream,
+          "application/xml"
+        );
+    } catch (Exception ex) {
+        logger_.LogError(ex, "Failed to upload metadata xml to storage.");
+        // We might want to rollback the zip upload here in a real production scenario
+        return StatusCode(500, "Failed to upload metadata file.");
+    }
 
     // Update in-memory cache
     await metadata_service_.AddMetadataAsync(metadata_xml);
+
+    logger_.LogInformation("Plugin {Id} v{Version} uploaded successfully.", metadata.id, metadata.version);
 
     return Ok(
       new {
@@ -222,6 +256,7 @@ public class PluginsController : ControllerBase {
   /// <returns>The updatePlugins.xml content.</returns>
   [HttpGet("updatePlugins.xml")]
   public async Task<IActionResult> GetUpdatePluginsXml() {
+    logger_.LogDebug("Serving updatePlugins.xml");
     string xml = await metadata_service_.GetMetadataXmlAsync();
     return Content(xml, "application/xml");
   }
@@ -233,7 +268,9 @@ public class PluginsController : ControllerBase {
   /// <returns>The file stream if found; otherwise, NotFound.</returns>
   [HttpGet("download/{file_name}")]
   public async Task<IActionResult> DownloadPlugin(string file_name) {
+    logger_.LogDebug("Download request for: {FileName}", file_name);
     if (!await storage_service_.FileExistsAsync(plugins_bucket_, file_name)) {
+      logger_.LogWarning("File not found: {FileName}", file_name);
       return NotFound();
     }
 
