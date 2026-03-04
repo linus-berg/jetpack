@@ -53,7 +53,7 @@ You can configure Minio settings using environment variables or `appsettings.jso
 *   `MINIO_PLUGINS_BUCKET`: The bucket name for storing plugin zip files.
 *   `MINIO_METADATA_BUCKET`: The bucket name for storing plugin metadata XML files.
 *   `MINIO_OBJECT_PREFIX`: The prefix for all objects stored in Minio (default: `jetpack`).
-*   `JETPACK_USE_HTTPS`: If HTTPS is used (reverse proxy).
+*   `JETPACK_USE_HTTPS`: If HTTPS is used (default `false`).
 *   `JETPACK_API_KEY`: API Key to authenticate to upload endpoint.
 
 ### appsettings.json
