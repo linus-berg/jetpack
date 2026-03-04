@@ -238,9 +238,9 @@ public class PluginsController : ControllerBase {
   /// <returns>The generated XML string.</returns>
   private string GenerateUpdatePluginsXml(PluginMetadata metadata,
                                           string plugin_file_name) {
-    //string scheme = https_ ? "https" : "http";
+    string scheme = https_ ? "https" : "http";
     string download_url =
-      $"{Request.Scheme}://{Request.Host}/api/plugins/download/{plugin_file_name}";
+      $"{scheme}://{Request.Host}/api/plugins/download/{plugin_file_name}";
     XElement idea_version = new XElement("idea-version");
     if (!string.IsNullOrEmpty(metadata.since_build)) {
       idea_version.SetAttributeValue("since-build", metadata.since_build);
