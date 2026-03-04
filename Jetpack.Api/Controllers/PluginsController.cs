@@ -18,6 +18,7 @@ public class PluginsController : ControllerBase {
   private readonly string metadata_bucket_;
   private readonly PluginMetadataService metadata_service_;
   private readonly string plugins_bucket_;
+  private readonly bool https_;
   private readonly IStorageService storage_service_;
 
   /// <summary>
@@ -35,6 +36,10 @@ public class PluginsController : ControllerBase {
     storage_service_ = storage_service;
     metadata_service_ = metadata_service;
     logger_ = logger;
+    https_ = bool.Parse(
+      Environment.GetEnvironmentVariable("JETPACK_USE_HTTPS") ??
+      configuration["Https"] ?? "false"
+    );
     plugins_bucket_ =
       Environment.GetEnvironmentVariable("MINIO_PLUGINS_BUCKET") ??
       configuration["Minio:PluginsBucket"] ??
@@ -233,6 +238,7 @@ public class PluginsController : ControllerBase {
   /// <returns>The generated XML string.</returns>
   private string GenerateUpdatePluginsXml(PluginMetadata metadata,
                                           string plugin_file_name) {
+    //string scheme = https_ ? "https" : "http";
     string download_url =
       $"{Request.Scheme}://{Request.Host}/api/plugins/download/{plugin_file_name}";
     XElement idea_version = new XElement("idea-version");

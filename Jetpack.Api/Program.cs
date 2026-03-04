@@ -19,7 +19,7 @@ public class Program {
     builder.Services.AddControllers();
     // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
     builder.Services.AddOpenApi();
-
+    
     builder.Services.AddSingleton<IStorageService, MinioStorageService>();
     builder.Services.AddSingleton<PluginMetadataService>();
 
@@ -37,6 +37,8 @@ public class Program {
     if (app.Environment.IsDevelopment()) {
       app.MapOpenApi();
     }
+
+    app.UseForwardedHeaders();
     app.UseAuthorization();
     app.MapControllers();
     await app.RunAsync();
