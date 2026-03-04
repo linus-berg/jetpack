@@ -35,10 +35,18 @@ public class PluginsController : ControllerBase {
     storage_service_ = storage_service;
     metadata_service_ = metadata_service;
     logger_ = logger;
-    plugins_bucket_ = configuration["Minio:PluginsBucket"] ??
-                      throw new InvalidOperationException("Plugins bucket configuration is missing.");
-    metadata_bucket_ = configuration["Minio:MetadataBucket"] ??
-                       throw new InvalidOperationException("Metadata bucket configuration is missing.");
+    plugins_bucket_ =
+      Environment.GetEnvironmentVariable("MINIO_PLUGINS_BUCKET") ??
+      configuration["Minio:PluginsBucket"] ??
+      throw new InvalidOperationException(
+        "Plugins bucket configuration is missing."
+      );
+    metadata_bucket_ =
+      Environment.GetEnvironmentVariable("MINIO_METADATA_BUCKET") ??
+      configuration["Minio:MetadataBucket"] ??
+      throw new InvalidOperationException(
+        "Metadata bucket configuration is missing."
+      );
   }
 
   /// <summary>
