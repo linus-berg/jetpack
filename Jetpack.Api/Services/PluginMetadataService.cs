@@ -3,17 +3,18 @@ using System.Xml.Linq;
 namespace Jetpack.Api.Services;
 
 /// <summary>
-/// Service responsible for managing plugin metadata, including initialization, adding new metadata, and retrieving the aggregated XML.
+///   Service responsible for managing plugin metadata, including initialization, adding new metadata, and retrieving the
+///   aggregated XML.
 /// </summary>
 public class PluginMetadataService {
-  private readonly ILogger<PluginMetadataService> logger_;
   private readonly SemaphoreSlim lock_ = new(1, 1);
+  private readonly ILogger<PluginMetadataService> logger_;
   private readonly string metadata_bucket_;
   private readonly IStorageService storage_service_;
   private XDocument cached_metadata_;
 
   /// <summary>
-  /// Initializes a new instance of the <see cref="PluginMetadataService"/> class.
+  ///   Initializes a new instance of the <see cref="PluginMetadataService" /> class.
   /// </summary>
   /// <param name="storage_service">The storage service used to persist and retrieve metadata files.</param>
   /// <param name="configuration">The application configuration.</param>
@@ -24,11 +25,15 @@ public class PluginMetadataService {
                                ILogger<PluginMetadataService> logger) {
     storage_service_ = storage_service;
     logger_ = logger;
-    string? bucket = Environment.GetEnvironmentVariable("MINIO_METADATA_BUCKET") ??
-                     configuration["Minio:MetadataBucket"];
+    string? bucket =
+      Environment.GetEnvironmentVariable("MINIO_METADATA_BUCKET") ??
+      configuration["Minio:MetadataBucket"];
     if (string.IsNullOrEmpty(bucket)) {
-      throw new InvalidOperationException("Metadata bucket configuration is missing.");
+      throw new InvalidOperationException(
+        "Metadata bucket configuration is missing."
+      );
     }
+
     metadata_bucket_ = bucket;
     cached_metadata_ = new XDocument(
       new XDeclaration("1.0", "UTF-8", null),
@@ -37,7 +42,7 @@ public class PluginMetadataService {
   }
 
   /// <summary>
-  /// Initializes the metadata cache by loading existing metadata files from the storage bucket.
+  ///   Initializes the metadata cache by loading existing metadata files from the storage bucket.
   /// </summary>
   /// <returns>A task that represents the asynchronous initialization operation.</returns>
   public async Task InitializeAsync() {
@@ -80,7 +85,7 @@ public class PluginMetadataService {
   }
 
   /// <summary>
-  /// Adds or updates plugin metadata from the provided XML content.
+  ///   Adds or updates plugin metadata from the provided XML content.
   /// </summary>
   /// <param name="xml_content">The XML string containing the plugin metadata.</param>
   /// <returns>A task that represents the asynchronous operation.</returns>
@@ -127,7 +132,7 @@ public class PluginMetadataService {
   }
 
   /// <summary>
-  /// Retrieves the aggregated plugin metadata as an XML string.
+  ///   Retrieves the aggregated plugin metadata as an XML string.
   /// </summary>
   /// <returns>A task that represents the asynchronous operation. The task result contains the metadata XML string.</returns>
   public async Task<string> GetMetadataXmlAsync() {

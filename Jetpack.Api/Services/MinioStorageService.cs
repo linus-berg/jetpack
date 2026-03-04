@@ -5,7 +5,7 @@ using Minio.DataModel.Args;
 namespace Jetpack.Api.Services;
 
 /// <summary>
-/// Implementation of <see cref="IStorageService"/> using MinIO object storage.
+///   Implementation of <see cref="IStorageService" /> using MinIO object storage.
 /// </summary>
 public class MinioStorageService : IStorageService {
   private readonly ILogger<MinioStorageService> logger_;
@@ -13,8 +13,8 @@ public class MinioStorageService : IStorageService {
   private readonly string object_prefix_;
 
   /// <summary>
-  /// Initializes a new instance of the <see cref="MinioStorageService"/> class.
-  /// Configures the MinIO client using settings from the environment variables or configuration.
+  ///   Initializes a new instance of the <see cref="MinioStorageService" /> class.
+  ///   Configures the MinIO client using settings from the environment variables or configuration.
   /// </summary>
   /// <param name="configuration">The application configuration.</param>
   /// <param name="logger">The logger instance.</param>
@@ -33,8 +33,9 @@ public class MinioStorageService : IStorageService {
       Environment.GetEnvironmentVariable("MINIO_SECURE") ??
       configuration["Minio:Secure"] ?? "false"
     );
-    object_prefix_ = Environment.GetEnvironmentVariable("MINIO_OBJECT_PREFIX") ??
-                     configuration["Minio:ObjectPrefix"] ?? "jetpack";
+    object_prefix_ =
+      Environment.GetEnvironmentVariable("MINIO_OBJECT_PREFIX") ??
+      configuration["Minio:ObjectPrefix"] ?? "jetpack";
 
     logger_.LogInformation(
       "Initializing MinioStorageService with Endpoint: {Endpoint}, Secure: {Secure}, Prefix: {Prefix}",
@@ -53,25 +54,6 @@ public class MinioStorageService : IStorageService {
     }
 
     minio_client_ = builder.Build();
-  }
-
-  private string GetPrefixedObjectName(string object_name) {
-    if (string.IsNullOrEmpty(object_prefix_)) {
-      return object_name;
-    }
-    // Ensure we don't double-prefix if logic changes later, though simple concatenation is usually enough
-    return $"{object_prefix_}/{object_name}";
-  }
-
-  private string RemovePrefixFromObjectName(string object_name) {
-    if (string.IsNullOrEmpty(object_prefix_)) {
-      return object_name;
-    }
-    string prefix_with_slash = $"{object_prefix_}/";
-    if (object_name.StartsWith(prefix_with_slash)) {
-      return object_name.Substring(prefix_with_slash.Length);
-    }
-    return object_name;
   }
 
   /// <inheritdoc />
@@ -94,7 +76,6 @@ public class MinioStorageService : IStorageService {
                                        .WithStreamData(data)
                                        .WithObjectSize(data.Length)
                                        .WithContentType(content_type);
-
       await minio_client_.PutObjectAsync(put_object_args);
       logger_.LogInformation(
         "Successfully uploaded file: {Object} to bucket: {Bucket}",
@@ -184,7 +165,10 @@ public class MinioStorageService : IStorageService {
         MakeBucketArgs? make_bucket_args =
           new MakeBucketArgs().WithBucket(bucket_name);
         await minio_client_.MakeBucketAsync(make_bucket_args);
-        logger_.LogInformation("Bucket {Bucket} created successfully", bucket_name);
+        logger_.LogInformation(
+          "Bucket {Bucket} created successfully",
+          bucket_name
+        );
       }
     } catch (Exception ex) {
       logger_.LogError(
@@ -232,5 +216,27 @@ public class MinioStorageService : IStorageService {
       );
       throw;
     }
+  }
+
+  private string GetPrefixedObjectName(string object_name) {
+    if (string.IsNullOrEmpty(object_prefix_)) {
+      return object_name;
+    }
+
+    // Ensure we don't double-prefix if logic changes later, though simple concatenation is usually enough
+    return $"{object_prefix_}/{object_name}";
+  }
+
+  private string RemovePrefixFromObjectName(string object_name) {
+    if (string.IsNullOrEmpty(object_prefix_)) {
+      return object_name;
+    }
+
+    string prefix_with_slash = $"{object_prefix_}/";
+    if (object_name.StartsWith(prefix_with_slash)) {
+      return object_name.Substring(prefix_with_slash.Length);
+    }
+
+    return object_name;
   }
 }

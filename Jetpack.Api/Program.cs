@@ -3,11 +3,11 @@ using Jetpack.Api.Services;
 namespace Jetpack.Api;
 
 /// <summary>
-/// The entry point for the Jetpack API application.
+///   The entry point for the Jetpack API application.
 /// </summary>
 public class Program {
   /// <summary>
-  /// The main method that configures and runs the web application.
+  ///   The main method that configures and runs the web application.
   /// </summary>
   /// <param name="args">Command-line arguments.</param>
   /// <returns>A task representing the asynchronous operation of the application.</returns>
@@ -19,7 +19,6 @@ public class Program {
     builder.Services.AddControllers();
     // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
     builder.Services.AddOpenApi();
-    
     builder.Services.AddSingleton<IStorageService, MinioStorageService>();
     builder.Services.AddSingleton<PluginMetadataService>();
 
@@ -39,7 +38,6 @@ public class Program {
     }
 
     app.UseForwardedHeaders();
-    app.UseAuthorization();
     app.MapControllers();
     await app.RunAsync();
   }
