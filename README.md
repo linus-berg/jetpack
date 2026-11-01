@@ -1,6 +1,10 @@
-# Jetpack
+<p align="center">
+  <img src="assets/logo.svg" alt="Jetpack logo" width="160">
+</p>
 
-**An offline JetBrains Marketplace for air-gapped networks.**
+<h1 align="center">Jetpack</h1>
+
+<p align="center"><b>An offline JetBrains Marketplace for air-gapped networks.</b></p>
 
 Jetpack implements the parts of the `plugins.jetbrains.com` API that
 IntelliJ-based IDEs (IntelliJ IDEA, WebStorm, PyCharm, Rider, GoLand, CLion,
