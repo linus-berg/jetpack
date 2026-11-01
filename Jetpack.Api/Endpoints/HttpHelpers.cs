@@ -10,6 +10,14 @@ internal static class HttpHelpers {
     return BuildNumber.TryParse(request.Query["build"].FirstOrDefault());
   }
 
+  /// <summary>The <c>os</c> / <c>arch</c> parameters sent by IDEs 2025.3+.</summary>
+  public static ClientPlatform Platform(this HttpRequest request) {
+    return ClientPlatform.Parse(
+      request.Query["os"].FirstOrDefault(),
+      request.Query["arch"].FirstOrDefault()
+    );
+  }
+
   public static string? QueryString(this HttpRequest request, string name) {
     string? value = request.Query[name].FirstOrDefault();
     return string.IsNullOrWhiteSpace(value) ? null : value;

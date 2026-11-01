@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using Jetpack.Api.Compatibility;
 
 namespace Jetpack.Api.Endpoints;
 
@@ -66,6 +67,17 @@ public sealed class CompatibleUpdateRequest {
   [JsonPropertyName("pluginXMLIds")] public List<string>? PluginXmlIds { get; set; }
 
   [JsonPropertyName("module")] public string? Module { get; set; }
+
+  /// <summary>OS enum name (e.g. <c>Linux</c>, <c>macOS</c>), sent by 2025.3+.</summary>
+  [JsonPropertyName("os")] public string? Os { get; set; }
+
+  /// <summary>CPU enum name (e.g. <c>X86_64</c>, <c>ARM64</c>), sent by 2025.3+.</summary>
+  [JsonPropertyName("arch")] public string? Arch { get; set; }
+
+  public ClientPlatform GetPlatform(HttpRequest request) {
+    ClientPlatform platform = ClientPlatform.Parse(Os, Arch);
+    return platform.IsKnown ? platform : request.Platform();
+  }
 }
 
 /// <summary><c>GET /files/{pluginId}/{updateId}/meta.json</c> (IntellijUpdateMetadata).</summary>

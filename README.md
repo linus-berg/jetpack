@@ -17,6 +17,8 @@ and dependency installation work with no IDE configuration.
 * Automatic installation of required plugin dependencies.
 * Compatibility filtering with the IDE's own `since-build`/`until-build` rules
   and version ordering, so every IDE version gets the right plugin version.
+* Platform-specific plugins (separate builds per OS/CPU, such as GitHub
+  Copilot): each IDE gets the build for its own OS and CPU.
 * Mirrored Marketplace plugins are stored byte-for-byte, so JetBrains plugin
   signatures still verify.
 * Supported IDE versions: 2022.3 through 2026.x (both update-check protocols).
@@ -82,6 +84,12 @@ scripts/jetpack-mirror.py download -b IU-252.25557.131 -f plugins.txt -o bundle/
 * `--deps` also fetches required plugin dependencies that are on the
   Marketplace. Dependencies bundled with the IDE are skipped.
 * `--broken-plugins` fetches JetBrains' list of known-broken plugin versions.
+* Some plugins publish a separate build per OS/CPU. For those, a build is
+  downloaded for every platform by default: `linux-x64`, `linux-arm64`,
+  `windows-x64`, `windows-arm64`, `macos-x64`, `macos-arm64`. Restrict it to
+  the platforms you use with `-p linux-x64 -p windows-x64`, since these builds
+  are large (GitHub Copilot is about 190 MB each). Ordinary plugins are
+  unaffected and are downloaded once.
 * Running the command again only downloads what is new, so it also works as
   a periodic update job.
 
@@ -102,6 +110,14 @@ tags recorded in `bundle/manifest.json` are carried over.
 curl -H "X-Api-Key: $JETPACK_API_KEY" --data-binary @build/distributions/my-plugin-1.2.0.zip \
      "https://jetpack.corp.example/api/plugins/upload?filename=my-plugin-1.2.0.zip"
 ```
+
+Upload every OS/CPU build of a platform-specific plugin; each has its own
+version string, such as `1.20.0-261-linux-x64`. Jetpack recognises the
+platform from the required `com.intellij.modules.os.*` /
+`com.intellij.modules.arch.*` dependencies in `plugin.xml`, as the IDE does.
+IDEs 2025.3 and newer report their OS and CPU, and Jetpack serves them the
+matching build. Older IDEs and other clients that don't report a platform get
+a platform-independent version when one is compatible.
 
 Accepted formats are exactly what the IDE accepts: a **`.jar`** with
 `META-INF/plugin.xml`, or a **`.zip`** with one top-level directory containing
@@ -362,6 +378,9 @@ Problems fixed relative to the old version:
   for that build.
 * **"Plugin X requires plugin Y"**: upload Y as well, or use
   `jetpack-mirror.py download --deps`.
+* **A platform-specific plugin is missing on some machines:** no build for
+  that OS/CPU was uploaded. `GET /api/plugins/<id>` lists each version's
+  `platform` (e.g. `linux/x86_64`).
 * **IDE-side detail:** add
   `-Didea.log.debug.categories=#com.intellij.ide.plugins.marketplace,#com.intellij.openapi.updateSettings.impl.PluginDownloader`
   and look at `idea.log` (*Help | Show Log in ...*).

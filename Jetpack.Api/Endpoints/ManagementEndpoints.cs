@@ -221,6 +221,7 @@ public static class ManagementEndpoints {
       version = release.Version,
       sinceBuild = release.SinceBuild,
       untilBuild = release.UntilBuild,
+      platform = entry.Platform.Label,
       fileName = release.FileName,
       kind = release.IsJar ? "jar" : "zip",
       size = release.Size,

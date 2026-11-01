@@ -9,6 +9,7 @@ public sealed class SearchQuery {
   public IReadOnlyList<string> Tags { get; init; } = [];
   public IReadOnlyList<string> Organizations { get; init; } = [];
   public BuildNumber? Build { get; init; }
+  public ClientPlatform Platform { get; init; } = ClientPlatform.S_UNKNOWN;
   public bool IncludeIncompatible { get; init; }
   public int Offset { get; init; }
   public int Max { get; init; } = 20;
@@ -39,7 +40,10 @@ public static class PluginSearch {
 
     List<(SearchHit Hit, int Score)> hits = new();
     foreach (PluginEntry plugin in candidates) {
-      ReleaseEntry? compatible = plugin.LatestCompatible(query.Build);
+      ReleaseEntry? compatible = plugin.LatestCompatible(
+        query.Build,
+        query.Platform
+      );
       if (compatible == null && !query.IncludeIncompatible) {
         continue;
       }

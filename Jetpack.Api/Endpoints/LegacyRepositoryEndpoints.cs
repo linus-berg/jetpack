@@ -28,7 +28,9 @@ public static class LegacyRepositoryEndpoints {
                                              IOptions<JetpackOptions> options) {
     CatalogSnapshot snapshot = catalog.Snapshot;
     BuildNumber? build = context.Request.Build();
-    string etag = $"{snapshot.ETag[..^1]}-{build}\"";
+    ClientPlatform platform = context.Request.Platform();
+    string etag =
+      $"{snapshot.ETag[..^1]}-{build}-{platform.Os}-{platform.Arch}\"";
     if (context.IsNotModified(etag)) {
       context.Response.StatusCode = StatusCodes.Status304NotModified;
       return;
@@ -49,13 +51,14 @@ public static class LegacyRepositoryEndpoints {
     await writer.WriteStartElementAsync(null, "plugins", null);
     foreach (PluginEntry plugin in snapshot.Plugins) {
       // Without a build every version is listed and the IDE picks the newest
-      // compatible one itself.
-      IEnumerable<ReleaseEntry> releases = build == null
-                                             ? plugin.Releases
-                                             : plugin.LatestCompatible(build) is
-                                               { } compatible
-                                               ? [compatible]
-                                               : [];
+      // compatible one itself. Without a platform, the newest release of each
+      // OS/CPU variant is listed; the IDE skips the ones for other platforms
+      // because their <depends> name the OS/CPU module.
+      IEnumerable<ReleaseEntry> releases =
+        build == null ? plugin.Releases :
+        !platform.IsKnown ? plugin.LatestCompatiblePerPlatform(build) :
+        plugin.LatestCompatible(build, platform) is { } compatible ? [compatible] :
+        [];
       foreach (ReleaseEntry entry in releases) {
         await WritePluginAsync(writer, entry, base_url);
       }

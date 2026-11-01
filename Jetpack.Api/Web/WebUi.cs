@@ -146,6 +146,11 @@ public static class WebUi {
               .Append(E(release.SinceBuild ?? "any"))
               .Append(" &ndash; ")
               .Append(E(release.UntilBuild ?? "any"))
+              .Append(
+                entry.Platform.Label is { } platform
+                  ? $" <span class=\"muted\">({E(platform)})</span>"
+                  : ""
+              )
               .Append("</td><td>")
               .Append(release.UploadedAt.ToString("yyyy-MM-dd HH:mm"))
               .Append("</td><td><a href=\"")

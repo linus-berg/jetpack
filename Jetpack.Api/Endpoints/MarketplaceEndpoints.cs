@@ -74,6 +74,7 @@ public static class MarketplaceEndpoints {
       Tags = request.QueryValues("tags"),
       Organizations = request.QueryValues("organization", "organizations"),
       Build = request.Build(),
+      Platform = request.Platform(),
       IncludeIncompatible = request.QueryFlag("all"),
       Offset = request.QueryInt("offset", 0),
       Max = request.QueryInt("max", 20)
@@ -119,10 +120,12 @@ public static class MarketplaceEndpoints {
   private static IResult Aggregation(string field, HttpRequest request,
                                      PluginCatalog catalog) {
     BuildNumber? build = request.Build();
+    ClientPlatform platform = request.Platform();
     List<PluginEntry> plugins = catalog.Snapshot
                                        .Plugins
                                        .Where(
-                                         p => p.LatestCompatible(build) != null
+                                         p => p.LatestCompatible(build, platform) !=
+                                              null
                                        )
                                        .ToList();
     IEnumerable<string> values = field.ToLowerInvariant() switch {
@@ -155,7 +158,8 @@ public static class MarketplaceEndpoints {
         catalog.Snapshot,
         request.QueryValues("pluginXmlId", "pluginXMLId", "pluginXMLIds"),
         request.QueryString("module"),
-        request.Build()
+        request.Build(),
+        request.Platform()
       )
     );
   }
@@ -172,14 +176,15 @@ public static class MarketplaceEndpoints {
         catalog.Snapshot,
         body.PluginXmlIds ?? [],
         body.Module,
-        BuildNumber.TryParse(body.Build) ?? request.Build()
+        BuildNumber.TryParse(body.Build) ?? request.Build(),
+        body.GetPlatform(request)
       )
     );
   }
 
   private static List<IdeCompatibleUpdate> FindCompatibleUpdates(
     CatalogSnapshot snapshot, IReadOnlyList<string> plugin_ids,
-    string? module, BuildNumber? build) {
+    string? module, BuildNumber? build, ClientPlatform platform) {
     List<IdeCompatibleUpdate> updates = new();
     IEnumerable<PluginEntry> plugins = module != null
                                          ? snapshot.FindByModule(module)
@@ -188,7 +193,7 @@ public static class MarketplaceEndpoints {
                                            .Select(snapshot.FindPlugin)
                                            .OfType<PluginEntry>();
     foreach (PluginEntry plugin in plugins) {
-      ReleaseEntry? release = plugin.LatestCompatible(build);
+      ReleaseEntry? release = plugin.LatestCompatible(build, platform);
       if (release != null) {
         updates.Add(
           new IdeCompatibleUpdate(
@@ -212,6 +217,7 @@ public static class MarketplaceEndpoints {
     }
 
     BuildNumber? build = BuildNumber.TryParse(body.Build) ?? request.Build();
+    ClientPlatform platform = body.GetPlatform(request);
     List<NearestUpdate> result = new();
     foreach (string id in body.PluginXmlIds ?? []) {
       PluginEntry? plugin = catalog.Snapshot.FindPlugin(id);
@@ -219,7 +225,7 @@ public static class MarketplaceEndpoints {
         continue;
       }
 
-      ReleaseEntry? compatible = plugin.LatestCompatible(build);
+      ReleaseEntry? compatible = plugin.LatestCompatible(build, platform);
       result.Add(ToNearestUpdate(compatible ?? plugin.Latest, compatible != null));
     }
 
@@ -409,22 +415,27 @@ public static class MarketplaceEndpoints {
     PluginEntry? plugin = catalog.Snapshot.FindPlugin(plugin_id);
     string? version = request.QueryString("version");
     BuildNumber? build = request.Build();
+    ClientPlatform platform = request.Platform();
     ReleaseEntry? release = version != null
                               ? plugin?.Releases.FirstOrDefault(
                                 r => r.Release.Version == version
                               )
-                              : plugin?.LatestCompatible(build);
+                              : plugin?.LatestCompatible(build, platform);
     if (release == null) {
       logger_factory.CreateLogger(typeof(MarketplaceEndpoints))
                     .LogInformation(
-                      "No release of {PluginId} for build {Build}",
+                      "No release of {PluginId} for build {Build} on {Os}/{Arch}",
                       plugin_id,
-                      build?.ToString() ?? "(any)"
+                      build?.ToString() ?? "(any)",
+                      platform.Os?.ToString() ?? "?",
+                      platform.Arch?.ToString() ?? "?"
                     );
       return Results.NotFound(
         plugin == null
           ? $"Plugin '{plugin_id}' is not available on this server."
-          : $"No version of '{plugin_id}' is compatible with {build}."
+          : $"No version of '{plugin_id}' is compatible with {build} " +
+            $"({platform.Os?.ToString() ?? "any OS"}, " +
+            $"{platform.Arch?.ToString() ?? "any CPU"})."
       );
     }
 
@@ -444,7 +455,7 @@ public static class MarketplaceEndpoints {
       PluginEntry? plugin = snapshot.FindPlugin(plugin_id);
       string? version = request.QueryString("version");
       release = version == null
-                  ? plugin?.LatestCompatible(request.Build())
+                  ? plugin?.LatestCompatible(request.Build(), request.Platform())
                   : plugin?.Releases.FirstOrDefault(
                     r => r.Release.Version == version
                   );

@@ -9,6 +9,9 @@ e.g. "Build #IU-252.25557.131"):
         -o bundle/ --deps --broken-plugins org.rust.lang "String Manipulation"
     jetpack-mirror.py download -b IU-252.25557.131 -o bundle/ -f plugins.txt
 
+Plugins published as separate builds per OS/CPU (e.g. GitHub Copilot) are
+fetched for every platform in --platform (default: all of them).
+
 Carry bundle/ into the offline network, then upload everything:
 
     jetpack-mirror.py upload --server https://plugins.jetbrains.com \\
@@ -34,6 +37,16 @@ from pathlib import Path
 USER_AGENT = "jetpack-mirror/2.0"
 MANIFEST = "manifest.json"
 BROKEN_PLUGINS = "brokenPlugins.json"
+# --platform name -> (os, arch) as the IDE reports them to the Marketplace.
+PLATFORMS = {
+    "linux-x64": ("Linux", "X86_64"),
+    "linux-arm64": ("Linux", "ARM64"),
+    "windows-x64": ("Windows", "X86_64"),
+    "windows-arm64": ("Windows", "ARM64"),
+    "macos-x64": ("macOS", "X86_64"),
+    "macos-arm64": ("macOS", "ARM64"),
+}
+PLATFORM_MODULES = ("com.intellij.modules.os.", "com.intellij.modules.arch.")
 
 
 def log(message: str) -> None:
@@ -94,6 +107,40 @@ def read_ids(args) -> list[str]:
     return [i for i in ids if not (i in seen or seen.add(i))]
 
 
+def platform_of(meta: dict) -> str | None:
+    """'linux/x86_64' for platform-specific builds, None otherwise."""
+    deps = meta.get("dependencies", [])
+    os_part = [d.rsplit(".", 1)[-1] for d in deps if d.startswith(PLATFORM_MODULES[0])]
+    arch_part = [d.rsplit(".", 1)[-1] for d in deps if d.startswith(PLATFORM_MODULES[1])]
+    if not os_part and not arch_part:
+        return None
+    return f"{'+'.join(os_part) or 'any'}/{'+'.join(arch_part) or 'any'}"
+
+
+def parse_platforms(values: list[str] | None) -> list[str]:
+    names = []
+    for value in values or ["all"]:
+        for name in value.split(","):
+            name = name.strip().lower()
+            if name == "all":
+                names.extend(PLATFORMS)
+            elif name in PLATFORMS:
+                names.append(name)
+            elif name:
+                raise SystemExit(f"Unknown platform '{name}'. Choose from: "
+                                 f"all, {', '.join(PLATFORMS)}")
+    return list(dict.fromkeys(names))
+
+
+def compatible_update(base: str, context: ssl.SSLContext, build: str,
+                      plugin_id: str, platform: str):
+    os_name, arch = PLATFORMS[platform]
+    query = urllib.parse.urlencode({"build": build, "os": os_name, "arch": arch,
+                                    "pluginXmlId": plugin_id})
+    updates = get_json(f"{base}/api/search/updates/compatible?{query}", context)
+    return updates[0] if updates else None
+
+
 def download(args) -> int:
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
@@ -102,6 +149,7 @@ def download(args) -> int:
     manifest = load_manifest(out)
     plugins = manifest["plugins"]
     ids = read_ids(args)
+    platforms = parse_platforms(args.platform)
     if not ids:
         log("No plugin ids given (positional arguments or --file).")
         return 2
@@ -115,16 +163,33 @@ def download(args) -> int:
             if plugin_id in seen:
                 continue
             seen.add(plugin_id)
-            query = urllib.parse.urlencode(
-                {"build": build, "pluginXmlId": plugin_id})
-            try:
-                updates = get_json(
-                    f"{base}/api/search/updates/compatible?{query}", context)
-            except urllib.error.URLError as e:
-                log(f"  ! {plugin_id}: Marketplace request failed: {e}")
-                failures += 1
-                continue
-            if not updates:
+            # Ask for the first platform; only plugins whose answer turns out
+            # to be platform-specific are looked up for the other platforms.
+            variants = []  # (update, meta)
+            for index, platform in enumerate(platforms):
+                try:
+                    update = compatible_update(base, context, build, plugin_id,
+                                               platform)
+                except urllib.error.URLError as e:
+                    log(f"  ! {plugin_id}: Marketplace request failed: {e}")
+                    failures += 1
+                    break
+                if update is None or any(str(u["id"]) == str(update["id"])
+                                         for u, _ in variants):
+                    if index == 0 and update is None:
+                        break
+                    continue
+                meta = {}
+                try:
+                    meta = get_json(f"{base}/files/{update['pluginId']}/"
+                                    f"{update['id']}/meta.json", context)
+                except urllib.error.URLError as e:
+                    log(f"  ! {plugin_id}: could not read metadata: {e}")
+                variants.append((update, meta))
+                if index == 0 and platform_of(meta) is None:
+                    break
+
+            if not variants:
                 if required_by:
                     log(f"  - {plugin_id} (needed by {required_by}) is not on "
                         f"the Marketplace for {build}; probably bundled")
@@ -133,40 +198,36 @@ def download(args) -> int:
                     failures += 1
                 continue
 
-            update = updates[0]
-            update_id = str(update["id"])
-            version = update["version"]
-            entry = plugins.get(update_id)
-            meta = {}
-            try:
-                meta = get_json(
-                    f"{base}/files/{update['pluginId']}/{update_id}/meta.json",
-                    context)
-            except urllib.error.URLError as e:
-                log(f"  ! {plugin_id}: could not read metadata: {e}")
+            for update, meta in variants:
+                update_id = str(update["id"])
+                version = update["version"]
+                platform_label = platform_of(meta)
+                suffix = f" [{platform_label}]" if platform_label else ""
+                entry = plugins.get(update_id)
+                if entry and (out / entry["file"]).exists():
+                    log(f"  = {plugin_id} {version}{suffix} for {build} "
+                        f"(already have {entry['file']})")
+                else:
+                    try:
+                        entry = fetch_artifact(base, context, out, plugin_id,
+                                               version, update_id)
+                    except (urllib.error.URLError, OSError, ValueError) as e:
+                        log(f"  ! {plugin_id} {version}: download failed: {e}")
+                        failures += 1
+                        continue
+                    entry["tags"] = meta.get("tags", [])
+                    entry["platform"] = platform_label
+                    plugins[update_id] = entry
+                    log(f"  + {plugin_id} {version}{suffix} for {build} -> "
+                        f"{entry['file']}")
 
-            if entry and (out / entry["file"]).exists():
-                log(f"  = {plugin_id} {version} for {build} (already have "
-                    f"{entry['file']})")
-            else:
-                try:
-                    entry = fetch_artifact(base, context, out, plugin_id,
-                                           version, update_id)
-                except (urllib.error.URLError, OSError, ValueError) as e:
-                    log(f"  ! {plugin_id} {version}: download failed: {e}")
-                    failures += 1
-                    continue
-                entry["tags"] = meta.get("tags", [])
-                plugins[update_id] = entry
-                log(f"  + {plugin_id} {version} for {build} -> {entry['file']}")
-
-            entry.setdefault("builds", [])
-            if build not in entry["builds"]:
-                entry["builds"].append(build)
-            save_manifest(out, manifest)
+                entry.setdefault("builds", [])
+                if build not in entry["builds"]:
+                    entry["builds"].append(build)
+                save_manifest(out, manifest)
 
             if args.deps:
-                for dep in meta.get("dependencies", []):
+                for dep in variants[0][1].get("dependencies", []):
                     if not dep.startswith("com.intellij.modules."):
                         queue.append((dep, plugin_id))
 
@@ -287,6 +348,10 @@ def main() -> int:
                    help="IDE build, e.g. IU-252.25557.131 (repeatable)")
     d.add_argument("-f", "--file", help="file with one plugin id per line")
     d.add_argument("-o", "--output", default="bundle", help="output directory")
+    d.add_argument("-p", "--platform", action="append",
+                   help="OS/CPU variants to fetch for platform-specific "
+                        f"plugins (repeatable or comma separated): all, "
+                        f"{', '.join(PLATFORMS)}. Default: all")
     d.add_argument("--deps", action="store_true",
                    help="also download required plugin dependencies")
     d.add_argument("--broken-plugins", action="store_true",

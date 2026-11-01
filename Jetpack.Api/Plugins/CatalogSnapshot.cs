@@ -12,6 +12,9 @@ public sealed class ReleaseEntry {
   public required int UpdateId { get; init; }
   public PluginEntry Plugin { get; internal set; } = null!;
 
+  /// <summary>OS / CPU requirements (platform-specific builds only).</summary>
+  public PlatformRequirement Platform { get; init; } = PlatformRequirement.S_NONE;
+
   public bool IsCompatibleWith(BuildNumber? build) {
     return build == null ||
            BuildNumber.IsCompatible(
@@ -44,9 +47,44 @@ public sealed partial class PluginEntry {
   public DateTimeOffset LastUpdated =>
     Releases.Max(r => r.Release.UploadedAt);
 
-  /// <summary>Newest release the given IDE build can load (newest overall when no build is given).</summary>
-  public ReleaseEntry? LatestCompatible(BuildNumber? build) {
-    return Releases.FirstOrDefault(r => r.IsCompatibleWith(build));
+  /// <summary>
+  ///   Newest release the given IDE can load (newest overall when no build is
+  ///   given). Releases built for another OS or CPU are skipped. When the IDE
+  ///   didn't report its platform, releases that are known to fit (platform
+  ///   independent ones) win; otherwise the newest platform-specific release is
+  ///   returned, like plugins.jetbrains.com does.
+  /// </summary>
+  public ReleaseEntry? LatestCompatible(BuildNumber? build,
+                                        ClientPlatform? platform = null) {
+    ClientPlatform client = platform ?? ClientPlatform.S_UNKNOWN;
+    ReleaseEntry? undecided = null;
+    foreach (ReleaseEntry release in Releases) {
+      if (!release.IsCompatibleWith(build)) {
+        continue;
+      }
+
+      switch (release.Platform.Evaluate(client)) {
+        case true:
+          return release;
+        case null:
+          undecided ??= release;
+          break;
+      }
+    }
+
+    return undecided;
+  }
+
+  /// <summary>
+  ///   For clients that didn't report a platform: the newest compatible
+  ///   release of every distinct platform, so the IDE can choose itself.
+  /// </summary>
+  public IReadOnlyList<ReleaseEntry> LatestCompatiblePerPlatform(
+    BuildNumber? build) {
+    return Releases.Where(r => r.IsCompatibleWith(build))
+                   .GroupBy(r => r.Platform.Label ?? "")
+                   .Select(g => g.First())
+                   .ToList();
   }
 
   internal static string ToPlainText(string? html) {
@@ -198,6 +236,10 @@ public sealed class CatalogSnapshot {
                                        UpdateId = AllocateId(
                                          $"update:{r.PluginId}\n{r.Version}",
                                          used_update_ids
+                                       ),
+                                       Platform = PlatformRequirement.FromRelease(
+                                         r.Dependencies,
+                                         r.Version
                                        )
                                      }
                                    )
