@@ -1,10 +1,42 @@
+# .NET build output
 bin/
 obj/
 /packages/
+artifacts/
+*.user
+*.suo
+.vs/
+
+# Test results
+TestResults/
+*.trx
+coverage*.xml
+
+# JetBrains Rider / ReSharper (machine-specific files; see also .idea/**/.gitignore)
 riderModule.iml
 /_ReSharper.Caches/
+.idea/**/indexLayout.xml
+.idea/**/vcs.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries/
+*.DotSettings.user
+
+# Other editors / OS
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Python (scripts/)
+__pycache__/
+*.pyc
+
 # Local plugin storage (dotnet run) and deployment secrets
 Jetpack.Api/data/
 data/
 deploy/certs/
 deploy/.env
+.env
+
+# Plugin bundles downloaded with scripts/jetpack-mirror.py
+bundle/
+*.part
