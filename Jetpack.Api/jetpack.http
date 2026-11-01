@@ -1,6 +1,38 @@
-@jetpack_HostAddress = http://localhost:5132
+@host = http://localhost:5132
+@apiKey = dev-key
+@build = IU-252.25557.131
 
-GET {{jetpack_HostAddress}}/weatherforecast/
-Accept: application/json
+### Health
+GET {{host}}/health
 
-###
+### Upload a plugin (raw body)
+POST {{host}}/api/plugins/upload?filename=my-plugin-1.0.0.zip
+X-Api-Key: {{apiKey}}
+Content-Type: application/octet-stream
+
+< ./my-plugin-1.0.0.zip
+
+### List plugins
+GET {{host}}/api/plugins
+
+### Marketplace search, as the IDE sends it
+GET {{host}}/api/search/plugins?orderBy=downloads&build={{build}}&max=20&all=false
+
+### Update check (2024.2+ IDEs)
+GET {{host}}/api/search/updates/compatible?build={{build}}&pluginXmlId=com.example.plugin
+
+### Update check (older IDEs)
+POST {{host}}/api/search/compatibleUpdates
+Content-Type: application/json
+
+{"build": "{{build}}", "pluginXMLIds": ["com.example.plugin"]}
+
+### Download (redirects to /files/...)
+GET {{host}}/pluginManager?id=com.example.plugin&build={{build}}
+
+### Classic custom repository XML
+GET {{host}}/updatePlugins.xml?build={{build}}
+
+### Delete a version
+DELETE {{host}}/api/plugins/com.example.plugin/1.0.0
+X-Api-Key: {{apiKey}}

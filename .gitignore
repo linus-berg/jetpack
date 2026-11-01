@@ -3,3 +3,8 @@ obj/
 /packages/
 riderModule.iml
 /_ReSharper.Caches/
+# Local plugin storage (dotnet run) and deployment secrets
+Jetpack.Api/data/
+data/
+deploy/certs/
+deploy/.env
