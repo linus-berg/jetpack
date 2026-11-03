@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" role="img" aria-labelledby="title">
+  <title id="title">Jetpack</title>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#312E81"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#F8FAFC"/>
+      <stop offset="0.55" stop-color="#E2E8F0"/>
+      <stop offset="1" stop-color="#94A3B8"/>
+    </linearGradient>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#64748B"/>
+      <stop offset="1" stop-color="#334155"/>
+    </linearGradient>
+    <linearGradient id="flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FB923C"/>
+      <stop offset="1" stop-color="#F43F5E" stop-opacity="0.85"/>
+    </linearGradient>
+    <linearGradient id="core" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FEF9C3"/>
+      <stop offset="1" stop-color="#FACC15"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Tile -->
+  <rect x="8" y="8" width="240" height="240" rx="56" fill="url(#sky)"/>
+  <circle cx="46" cy="52" r="3" fill="#A5B4FC" opacity="0.7"/>
+  <circle cx="212" cy="66" r="2.5" fill="#A5B4FC" opacity="0.6"/>
+  <circle cx="200" cy="40" r="1.8" fill="#A5B4FC" opacity="0.5"/>
+  <circle cx="58" cy="96" r="1.8" fill="#A5B4FC" opacity="0.45"/>
+
+  <!-- Flames -->
+  <path d="M70 176 C70 200 79 214 88 232 C97 214 106 200 106 176 Z" fill="url(#flame)"/>
+  <path d="M79 176 C79 194 84 204 88 216 C92 204 97 194 97 176 Z" fill="url(#core)"/>
+  <path d="M150 176 C150 200 159 214 168 232 C177 214 186 200 186 176 Z" fill="url(#flame)"/>
+  <path d="M159 176 C159 194 164 204 168 216 C172 204 177 194 177 176 Z" fill="url(#core)"/>
+
+  <!-- Nozzles -->
+  <path d="M74 160 H102 L108 178 H68 Z" fill="#475569"/>
+  <path d="M154 160 H182 L188 178 H148 Z" fill="#475569"/>
+
+  <!-- Plug: prongs and head forming the harness between the tanks -->
+  <rect x="114" y="38" width="9" height="32" rx="3.5" fill="#CBD5E1"/>
+  <rect x="133" y="38" width="9" height="32" rx="3.5" fill="#CBD5E1"/>
+  <rect x="102" y="64" width="52" height="88" rx="14" fill="url(#plate)"/>
+  <rect x="112" y="78" width="32" height="6" rx="3" fill="#22D3EE"/>
+  <rect x="112" y="92" width="32" height="6" rx="3" fill="#22D3EE" opacity="0.55"/>
+
+  <!-- Tanks -->
+  <rect x="62" y="58" width="52" height="108" rx="26" fill="url(#metal)"/>
+  <rect x="142" y="58" width="52" height="108" rx="26" fill="url(#metal)"/>
+  <rect x="62" y="96" width="52" height="14" fill="#22D3EE"/>
+  <rect x="142" y="96" width="52" height="14" fill="#22D3EE"/>
+  <rect x="72" y="68" width="8" height="24" rx="4" fill="#FFFFFF" opacity="0.8"/>
+  <rect x="152" y="68" width="8" height="24" rx="4" fill="#FFFFFF" opacity="0.8"/>
+</svg>

@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Text.Encodings.Web;
+using System.Text.Unicode;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Jetpack.Api.Configuration;
@@ -7,6 +9,7 @@ using Jetpack.Api.Plugins;
 using Jetpack.Api.Storage;
 using Jetpack.Api.Web;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.WebEncoders;
 
 namespace Jetpack.Api;
 
@@ -15,6 +18,17 @@ namespace Jetpack.Api;
 ///   JetBrains Marketplace protocol.
 /// </summary>
 public class Program {
+  // The web UI only ever loads resources from this server, which also keeps it
+  // fully functional offline.
+  private const string C_CONTENT_SECURITY_POLICY_ =
+    "default-src 'self'; script-src 'self'; style-src 'self'; " +
+    "img-src 'self' data:; connect-src 'self'; font-src 'self'; " +
+    "object-src 'none'; base-uri 'self'; form-action 'self'; " +
+    "frame-ancestors 'none'";
+
+  private static readonly string[] S_STATIC_PREFIXES_ =
+    ["/lib/", "/css/", "/js/", "/img/", "/favicon"];
+
   public static async Task Main(string[] args) {
     WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
     LegacyConfiguration.Apply(builder.Configuration);
@@ -30,6 +44,15 @@ public class Program {
     builder.Services.AddSingleton<PluginUploadService>();
     builder.Services.AddSingleton<DownloadStatistics>();
     builder.Services.AddHostedService<CatalogBackgroundService>();
+    builder.Services.AddSingleton<DescriptionSanitizer>();
+    builder.Services.AddRazorPages();
+    builder.Services.Configure<RouteOptions>(options => options.LowercaseUrls = true);
+    // Keep non-ASCII text (plugin names, "–") readable in the HTML; markup
+    // characters are still escaped.
+    builder.Services.Configure<WebEncoderOptions>(
+      options => options.TextEncoderSettings =
+                   new TextEncoderSettings(UnicodeRanges.All)
+    );
     builder.Services.AddProblemDetails();
     builder.Services.ConfigureHttpJsonOptions(
       options => {
@@ -48,10 +71,12 @@ public class Program {
     app.UseExceptionHandler();
     app.UseStatusCodePages();
     app.Use(LogRequestsAsync);
+    app.Use(AddPageSecurityHeadersAsync);
+    app.MapStaticAssets();
     app.MapMarketplaceEndpoints();
     app.MapLegacyRepositoryEndpoints();
     app.MapManagementEndpoints();
-    app.MapWebUi();
+    app.MapRazorPages().WithStaticAssets();
     app.MapFallback(
       (HttpContext context) => {
         // Anything an IDE asks for that we don't implement shows up here.
@@ -114,11 +139,37 @@ public class Program {
     }
   }
 
+  private static Task AddPageSecurityHeadersAsync(HttpContext context,
+                                                  RequestDelegate next) {
+    context.Response.OnStarting(
+      () => {
+        HttpResponse response = context.Response;
+        if (response.ContentType?.StartsWith(
+              "text/html",
+              StringComparison.OrdinalIgnoreCase
+            ) ==
+            true) {
+          response.Headers.ContentSecurityPolicy = C_CONTENT_SECURITY_POLICY_;
+          response.Headers.XContentTypeOptions = "nosniff";
+          response.Headers.XFrameOptions = "DENY";
+          response.Headers["Referrer-Policy"] = "same-origin";
+        }
+
+        return Task.CompletedTask;
+      }
+    );
+    return next(context);
+  }
+
   private static async Task LogRequestsAsync(HttpContext context,
                                              RequestDelegate next) {
     long start = Stopwatch.GetTimestamp();
     await next(context);
+    string path = context.Request.Path.Value ?? "";
     if (context.Request.Path.StartsWithSegments("/health") ||
+        S_STATIC_PREFIXES_.Any(
+          p => path.StartsWith(p, StringComparison.OrdinalIgnoreCase)
+        ) ||
         !context.RequestServices
                 .GetRequiredService<IOptions<JetpackOptions>>()
                 .Value

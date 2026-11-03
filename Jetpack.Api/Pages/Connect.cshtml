@@ -1,0 +1,112 @@
+@page
+@model ConnectModel
+
+<div class="mb-4">
+    <h1 class="h3 mb-1">Connect an IDE</h1>
+    <p class="text-body-secondary mb-0">
+        Jetpack speaks the JetBrains Marketplace protocol, so IntelliJ-based IDEs (2022.3 and newer)
+        use it for the Marketplace tab, plugin updates and dependencies. Pick one of the options below.
+    </p>
+</div>
+
+@if (Model.ViaMarketplaceName) {
+    <div class="alert alert-success d-flex gap-2" role="status">
+        @Icons.Render("check")
+        <div>
+            You reached this page through <strong>plugins.jetbrains.com</strong>, so DNS and the
+            certificate are set up correctly on this machine. IDEs here need no further configuration.
+        </div>
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-xl-4">
+        <div class="card h-100 jp-option jp-option-recommended">
+            <div class="card-header d-flex align-items-center gap-2">
+                @Icons.Render("globe") <span class="fw-semibold">DNS</span>
+                <span class="badge bg-primary-subtle text-primary-emphasis ms-auto">Recommended</span>
+            </div>
+            <div class="card-body">
+                <p>No IDE configuration at all. The stock Marketplace just works.</p>
+                <ol class="jp-steps">
+                    <li>Resolve <code>plugins.jetbrains.com</code> and <code>downloads.marketplace.jetbrains.com</code>
+                        to this server in your internal DNS, for example with dnsmasq:
+                        <div class="jp-code mt-2">
+                            <pre id="jp-dns"><code>address=/plugins.jetbrains.com/&lt;jetpack-ip&gt;
+address=/downloads.marketplace.jetbrains.com/&lt;jetpack-ip&gt;</code></pre>
+                            <button type="button" class="btn btn-sm jp-copy" data-jp-copy="#jp-dns" aria-label="Copy">@Icons.Render("copy")</button>
+                        </div>
+                    </li>
+                    <li>Serve a TLS certificate for those names (<code>deploy/generate-certs.sh</code> creates one).</li>
+                    <li>Install the CA certificate in each developer machine's OS trust store. JetBrains IDEs
+                        trust the OS store by default.</li>
+                </ol>
+                <p class="small text-body-secondary mb-0">
+                    Mirrored Marketplace plugins install silently. In-house plugins that aren't signed show a
+                    one-time “not signed” prompt in this mode.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="card h-100 jp-option">
+            <div class="card-header d-flex align-items-center gap-2">
+                @Icons.Render("terminal") <span class="fw-semibold">VM option</span>
+            </div>
+            <div class="card-body">
+                <p>Point a single IDE at this server, without changing DNS.</p>
+                <ol class="jp-steps">
+                    <li>In the IDE open <em>Help | Edit Custom VM Options</em>.</li>
+                    <li>Add this line and restart the IDE:
+                        <div class="jp-code mt-2">
+                            <pre id="jp-vmoption"><code>-Didea.plugins.host=@Model.ServerUrl</code></pre>
+                            <button type="button" class="btn btn-sm jp-copy" data-jp-copy="#jp-vmoption" aria-label="Copy">@Icons.Render("copy")</button>
+                        </div>
+                    </li>
+                </ol>
+                <p class="small text-body-secondary mb-0">
+                    The certificate must be valid for <code>@Model.ServerHost</code> and trusted on the machine.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="card h-100 jp-option">
+            <div class="card-header d-flex align-items-center gap-2">
+                @Icons.Render("list") <span class="fw-semibold">Custom repository</span>
+            </div>
+            <div class="card-body">
+                <p>The classic plugin repository list. Works with any IDE version.</p>
+                <ol class="jp-steps">
+                    <li>Open <em>Settings | Plugins | ⚙ | Manage Plugin Repositories</em>.</li>
+                    <li>Add:
+                        <div class="jp-code mt-2">
+                            <pre id="jp-repo"><code>@Model.ServerUrl/updatePlugins.xml</code></pre>
+                            <button type="button" class="btn btn-sm jp-copy" data-jp-copy="#jp-repo" aria-label="Copy">@Icons.Render("copy")</button>
+                        </div>
+                    </li>
+                </ol>
+                <p class="small text-body-secondary mb-0">
+                    Plugins then appear in search results only, next to Marketplace results that fail offline.
+                    The old URL <code>/api/plugins/updatePlugins.xml</code> still works.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">@Icons.Render("shield") Checking the setup</div>
+    <div class="card-body">
+        <ul class="mb-0">
+            <li>Every IDE request is logged by Jetpack with the IDE's name and build, e.g.
+                <code>GET /api/search/plugins … (WebStorm/262.11879.105)</code>. No log lines when you open the
+                Marketplace tab means DNS or TLS isn't set up yet on that machine.</li>
+            <li><em>PKIX path building failed</em> in the IDE: the CA isn't trusted, or the certificate doesn't list
+                <code>plugins.jetbrains.com</code>.</li>
+            <li>Server status: <a href="/health">/health</a>.</li>
+        </ul>
+    </div>
+</div>

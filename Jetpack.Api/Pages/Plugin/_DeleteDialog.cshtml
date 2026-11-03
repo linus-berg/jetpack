@@ -1,0 +1,25 @@
+<div class="modal fade" id="jp-delete-dialog" tabindex="-1" aria-labelledby="jp-delete-title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <form class="modal-content" data-jp-delete-form novalidate>
+            <div class="modal-header">
+                <h2 class="modal-title h5" id="jp-delete-title">Delete</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p data-jp-delete-message></p>
+                <label for="jp-delete-key" class="form-label">API key</label>
+                <input type="password" class="form-control" id="jp-delete-key" autocomplete="current-password"
+                       required data-jp-api-key />
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" id="jp-delete-remember" data-jp-remember-key />
+                    <label class="form-check-label" for="jp-delete-remember">Remember the key for this browser session</label>
+                </div>
+                <div class="alert alert-danger mt-3 mb-0 d-none" role="alert" data-jp-delete-error></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-danger" data-jp-delete-confirm>Delete</button>
+            </div>
+        </form>
+    </div>
+</div>

@@ -1,0 +1,96 @@
+@page
+@model UploadModel
+
+<div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-4">
+    <div>
+        <h1 class="h3 mb-1">Upload plugins</h1>
+        <p class="text-body-secondary mb-0">
+            Plugin archives exactly as published: a <code>.jar</code> with <code>META-INF/plugin.xml</code>,
+            or a <code>.zip</code> with one folder containing <code>lib/*.jar</code>. Files are stored unchanged,
+            so JetBrains Marketplace signatures stay valid.
+        </p>
+    </div>
+</div>
+
+@if (Model.UploadsDisabled) {
+    <div class="alert alert-warning d-flex gap-2" role="alert">
+        @Icons.Render("alert")
+        <div>
+            <strong>Uploads are disabled.</strong> The server has no API key configured. Set
+            <code>Jetpack__ApiKey</code> (or <code>JETPACK_API_KEY</code>) and restart Jetpack.
+        </div>
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <form class="card" data-jp-upload-form data-jp-max-bytes="@Model.MaxUploadBytes" novalidate>
+            <div class="card-body">
+                <label class="jp-dropzone w-100" for="jp-files" data-jp-dropzone>
+                    <span class="jp-dropzone-icon">@Icons.Render("upload", "jp-icon jp-icon-xl")</span>
+                    <span class="fw-semibold">Drop plugin files here or click to choose</span>
+                    <span class="small text-body-secondary">.zip and .jar, up to @Format.Bytes(Model.MaxUploadBytes) each</span>
+                    <input id="jp-files" type="file" class="visually-hidden" accept=".zip,.jar" multiple data-jp-files />
+                </label>
+
+                <ul class="list-group mt-3 d-none" data-jp-queue></ul>
+
+                <div class="row g-3 mt-1">
+                    <div class="col-md-6">
+                        <label for="jp-upload-key" class="form-label">@Icons.Render("key") API key</label>
+                        <input type="password" class="form-control" id="jp-upload-key" autocomplete="current-password"
+                               data-jp-api-key required="@(Model.KeyRequired ? "required" : null)" />
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="jp-upload-remember" data-jp-remember-key />
+                            <label class="form-check-label" for="jp-upload-remember">Remember for this browser session</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="jp-upload-tags" class="form-label">@Icons.Render("tag") Tags <span class="text-body-secondary">(optional)</span></label>
+                        <input type="text" class="form-control" id="jp-upload-tags" placeholder="e.g. Languages, Tools" data-jp-tags />
+                        <div class="form-check form-switch mt-2">
+                            <input class="form-check-input" type="checkbox" role="switch" id="jp-upload-force" data-jp-force />
+                            <label class="form-check-label" for="jp-upload-force">Replace versions that already exist</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-between align-items-center gap-2">
+                <span class="small text-body-secondary" data-jp-summary>No files selected.</span>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary" data-jp-clear disabled>Clear</button>
+                    <button type="submit" class="btn btn-primary" data-jp-start disabled>@Icons.Render("upload") Upload</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">@Icons.Render("terminal") Command line</div>
+            <div class="card-body small">
+                <p class="mb-2">Upload a single file:</p>
+                <div class="jp-code mb-3">
+                    <pre id="jp-curl"><code>curl -H "X-Api-Key: $JETPACK_API_KEY" \
+  --data-binary @@my-plugin-1.0.zip \
+  "@Model.ServerUrl/api/plugins/upload?filename=my-plugin-1.0.zip"</code></pre>
+                    <button type="button" class="btn btn-sm jp-copy" data-jp-copy="#jp-curl" aria-label="Copy">@Icons.Render("copy")</button>
+                </div>
+                <p class="mb-2">Upload a bundle made with <code>jetpack-mirror.py download</code>:</p>
+                <div class="jp-code">
+                    <pre id="jp-mirror"><code>scripts/jetpack-mirror.py upload bundle/ \
+  --server @Model.ServerUrl --api-key "$JETPACK_API_KEY"</code></pre>
+                    <button type="button" class="btn btn-sm jp-copy" data-jp-copy="#jp-mirror" aria-label="Copy">@Icons.Render("copy")</button>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header">@Icons.Render("info") Good to know</div>
+            <ul class="list-group list-group-flush small">
+                <li class="list-group-item">Jetpack detects jar and zip plugins from their content, whatever the file is called.</li>
+                <li class="list-group-item">An existing version is skipped unless <em>Replace</em> is on.</li>
+                <li class="list-group-item">Upload every OS/CPU build of platform-specific plugins; each IDE gets the right one.</li>
+            </ul>
+        </div>
+    </div>
+</div>

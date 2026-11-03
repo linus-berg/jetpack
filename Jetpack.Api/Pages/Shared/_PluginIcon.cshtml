@@ -1,0 +1,18 @@
+@* Lazy only for icons far down long lists; visible ones load immediately. *@
+@model (PluginEntry Plugin, string Size, bool Lazy)
+@{
+    // The icon endpoint serves the newest release that has an icon.
+    PluginRelease? with_icon = Model.Plugin.Releases.Select(r => r.Release).FirstOrDefault(r => r.HasIcon);
+    string src = $"/api/icon?pluginId={Uri.EscapeDataString(Model.Plugin.Id)}";
+    string loading = Model.Lazy ? "lazy" : "eager";
+}
+@if (with_icon is { HasDarkIcon: true }) {
+    @* Plugins can ship a separate icon for dark themes. *@
+    <img class="jp-plugin-icon jp-plugin-icon-@Model.Size jp-only-light" alt="" loading="@loading" src="@src" />
+    <img class="jp-plugin-icon jp-plugin-icon-@Model.Size jp-only-dark" alt="" loading="@loading" src="@(src)&theme=DARCULA" />
+} else if (with_icon != null) {
+    <img class="jp-plugin-icon jp-plugin-icon-@Model.Size" alt="" loading="@loading" src="@src" />
+} else {
+    <span class="jp-plugin-icon jp-plugin-icon-@Model.Size jp-plugin-icon-fallback jp-hue-@Format.Hue(Model.Plugin.Id)"
+          aria-hidden="true">@Format.Initials(Model.Plugin.Name)</span>
+}

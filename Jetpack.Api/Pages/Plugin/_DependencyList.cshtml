@@ -1,0 +1,26 @@
+@model (string Title, IReadOnlyList<Jetpack.Api.Pages.Plugin.IndexModel.Dependency> Items)
+<div class="card h-100">
+    <div class="card-header d-flex justify-content-between">
+        <span>@Model.Title dependencies</span>
+        <span class="text-body-secondary">@Model.Items.Count</span>
+    </div>
+    @if (Model.Items.Count == 0) {
+        <div class="card-body text-body-secondary">None.</div>
+    } else {
+        <ul class="list-group list-group-flush">
+            @foreach (Jetpack.Api.Pages.Plugin.IndexModel.Dependency dependency in Model.Items) {
+                <li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+                    <span class="min-w-0">
+                        @if (dependency.Hosted) {
+                            <a asp-page="/Plugin/Index" asp-route-xmlId="@dependency.Id">@dependency.Name</a>
+                            <code class="d-block small text-truncate">@dependency.Id</code>
+                        } else {
+                            <code class="text-truncate d-block">@dependency.Id</code>
+                        }
+                    </span>
+                    <span class="badge @(dependency.Hosted ? "bg-success-subtle text-success-emphasis" : "bg-body-secondary text-body-secondary") text-nowrap">@dependency.Kind</span>
+                </li>
+            }
+        </ul>
+    }
+</div>

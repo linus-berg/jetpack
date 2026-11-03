@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 namespace Jetpack.Tests;
 
 /// <summary>Runs Jetpack in-process against a temporary storage directory.</summary>
-public sealed class JetpackFactory : WebApplicationFactory<Program> {
+public class JetpackFactory : WebApplicationFactory<Program> {
   public const string C_API_KEY = "test-api-key";
 
   public JetpackFactory(string? storage_path = null) {

@@ -28,7 +28,9 @@ and dependency installation work with no IDE configuration.
 * Supported IDE versions: 2022.3 through 2026.x (both update-check protocols).
 * Storage: a plain directory (default) or S3-compatible object storage
   (MinIO, SeaweedFS, Ceph, AWS).
-* A web UI and a REST API for uploading, browsing and deleting plugins.
+* A web UI (light and dark themes) and a REST API for browsing, uploading and
+  deleting plugins. The UI is entirely self-contained, so it works with no
+  internet access.
 
 ## Contents
 
@@ -62,7 +64,20 @@ Then:
 3. Upload plugins ([next section](#getting-plugins-into-the-air-gap)).
 4. Open *Settings | Plugins | Marketplace* in any JetBrains IDE.
 
-The web UI at `https://<jetpack>/` lists the catalog and has an upload form.
+The web UI at `https://<jetpack>/` has:
+
+* **Plugins:** the catalog, with search and sorting. Each plugin page shows its
+  description, change notes, every version (compatible builds, platform, size,
+  SHA-256), dependencies, download links, and buttons to delete versions.
+* **Upload:** drag-and-drop upload of several files at once, with a progress
+  bar and result for each file.
+* **Connect an IDE:** the setup steps for each connection method, with
+  ready-to-copy snippets for this server.
+
+Every script, stylesheet, font and icon comes from Jetpack itself. Bootstrap
+5.3 is bundled, and pages send a Content-Security-Policy that allows nothing
+else. Plugin descriptions (HTML written by plugin authors) are sanitised before
+they're displayed.
 
 ## Getting plugins into the air gap
 
@@ -406,3 +421,15 @@ The protocol details follow `MarketplaceUrls.kt`, `MarketplaceRequests.kt` and
 [intellij-community](https://github.com/JetBrains/intellij-community/tree/master/platform/platform-impl/src/com/intellij/ide/plugins/marketplace).
 `BuildNumber` and `VersionComparator` are ports of the IDE's own classes, so
 compatibility and "is newer" decisions match the IDE exactly.
+
+The web UI uses ASP.NET Core Razor Pages, laid out like the standard
+`dotnet new webapp` template:
+
+* `Jetpack.Api/Pages/`: the pages, with `Shared/_Layout.cshtml` for the
+  common frame.
+* `Jetpack.Api/wwwroot/`: static files, served through `MapStaticAssets`
+  with fingerprinted, pre-compressed URLs.
+* Bootstrap comes from that template's `wwwroot/lib`.
+
+Static files are only copied by `dotnet publish` (as in the Dockerfile).
+`dotnet run` serves them from the project folder.

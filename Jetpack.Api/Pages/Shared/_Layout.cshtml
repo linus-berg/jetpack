@@ -1,0 +1,98 @@
+@using Jetpack.Api.Storage
+@inject PluginCatalog Catalog
+@inject IBlobStore Store
+@{
+    string nav = ViewData["Nav"] as string ?? "";
+    CatalogSnapshot snapshot = Catalog.Snapshot;
+}
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>@(ViewData["Title"] is string title ? $"{title} · Jetpack" : "Jetpack")</title>
+    <link rel="icon" type="image/svg+xml" href="~/favicon.svg" />
+    <script src="~/js/theme.js" asp-append-version="true"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body class="d-flex flex-column min-vh-100">
+<header>
+    <nav class="navbar navbar-expand-md jp-navbar" data-bs-theme="dark">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center gap-2" asp-page="/Index">
+                <img src="~/img/logo.svg" alt="" width="32" height="32" />
+                <span class="fw-semibold">Jetpack</span>
+                <span class="jp-brand-sub d-none d-lg-inline">Plugin repository</span>
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#jp-nav"
+                    aria-controls="jp-nav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="jp-nav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item">
+                        <a class="nav-link @(nav == "plugins" ? "active" : "")" asp-page="/Index"
+                           aria-current="@(nav == "plugins" ? "page" : null)">@Icons.Render("package") Plugins</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link @(nav == "upload" ? "active" : "")" asp-page="/Upload"
+                           aria-current="@(nav == "upload" ? "page" : null)">@Icons.Render("upload") Upload</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link @(nav == "connect" ? "active" : "")" asp-page="/Connect"
+                           aria-current="@(nav == "connect" ? "page" : null)">@Icons.Render("plug") Connect an IDE</a>
+                    </li>
+                </ul>
+                <div class="d-flex align-items-center gap-3">
+                    @if (Catalog.IsLoaded) {
+                        <span class="jp-status jp-status-ok" title="Catalog loaded from storage">Online</span>
+                    } else {
+                        <span class="jp-status jp-status-warn" title="Storage not reachable yet; retrying">Storage unavailable</span>
+                    }
+                    <button type="button" class="btn btn-sm jp-theme-toggle" data-jp-theme-toggle
+                            title="Toggle light/dark theme" aria-label="Toggle light/dark theme">
+                        <span class="jp-theme-dark">@Icons.Render("moon")</span>
+                        <span class="jp-theme-light">@Icons.Render("sun")</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+</header>
+
+<main class="flex-grow-1 py-4">
+    <div class="container">
+        @RenderBody()
+    </div>
+</main>
+
+<footer class="jp-footer py-3">
+    <div class="container d-flex flex-wrap justify-content-between gap-2 small">
+        <span>
+            <img src="~/img/logo.svg" alt="" width="16" height="16" class="me-1 align-text-bottom" />
+            Jetpack &middot; @Format.Number(snapshot.Plugins.Count) plugins &middot;
+            @Format.Number(snapshot.ReleaseCount) versions &middot; @Store.Description
+        </span>
+        <span class="d-flex gap-3">
+            <a href="/updatePlugins.xml">updatePlugins.xml</a>
+            <a href="/api/plugins">API</a>
+            <a href="/health">Health</a>
+        </span>
+    </div>
+</footer>
+
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="jp-toast" class="toast align-items-center border-0" role="status" aria-live="polite" aria-atomic="true">
+        <div class="d-flex">
+            <div class="toast-body" data-jp-toast-body></div>
+            <button type="button" class="btn-close me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+    </div>
+</div>
+
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

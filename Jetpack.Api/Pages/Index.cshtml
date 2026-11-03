@@ -1,0 +1,145 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Plugins";
+}
+
+<section class="jp-hero mb-4">
+    <div class="d-flex flex-wrap align-items-end justify-content-between gap-3 mb-3">
+        <div>
+            <h1 class="h3 mb-1">Plugins</h1>
+            <p class="text-body-secondary mb-0">
+                JetBrains IDE plugins available on this server. IDEs install them from
+                <em>Settings | Plugins | Marketplace</em>.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" asp-page="/Connect">@Icons.Render("plug") Connect an IDE</a>
+            <a class="btn btn-primary" asp-page="/Upload">@Icons.Render("upload") Upload plugins</a>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-lg-3">
+            <div class="jp-stat card">
+                <div class="card-body">
+                    <div class="jp-stat-label">@Icons.Render("package") Plugins</div>
+                    <div class="jp-stat-value">@Format.Number(Model.TotalPlugins)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="jp-stat card">
+                <div class="card-body">
+                    <div class="jp-stat-label">@Icons.Render("layers") Versions</div>
+                    <div class="jp-stat-value">@Format.Number(Model.TotalReleases)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="jp-stat card">
+                <div class="card-body">
+                    <div class="jp-stat-label">@Icons.Render("download") Downloads</div>
+                    <div class="jp-stat-value">@Format.Number(Model.TotalDownloads)</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-lg-3">
+            <div class="jp-stat card">
+                <div class="card-body">
+                    <div class="jp-stat-label">@Icons.Render("server") Storage</div>
+                    <div class="jp-stat-value @(Model.IsLoaded ? "text-success" : "text-warning")">
+                        @(Model.IsLoaded ? "Online" : "Unavailable")
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form method="get" class="jp-search row g-2" role="search" data-jp-search>
+        <div class="col-12 col-md">
+            <div class="input-group input-group-lg">
+                <span class="input-group-text">@Icons.Render("search")</span>
+                <input type="search" class="form-control" name="q" value="@Model.Query"
+                       placeholder="Search by name, plugin ID, vendor or tag" aria-label="Search plugins"
+                       autocomplete="off" data-jp-filter />
+            </div>
+        </div>
+        <div class="col col-md-auto">
+            <select class="form-select form-select-lg jp-sort" name="sort" aria-label="Sort by" data-jp-autosubmit>
+                @foreach ((string value, string label) in IndexModel.S_SORTS) {
+                    <option value="@value" selected="@(value == (Model.Sort ?? ""))">@label</option>
+                }
+            </select>
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary btn-lg" type="submit">Search</button>
+        </div>
+    </form>
+</section>
+
+@if (Model.TotalPlugins == 0) {
+    <div class="jp-empty card">
+        <div class="card-body text-center py-5">
+            <img src="~/img/logo.svg" alt="" width="72" height="72" class="mb-3" />
+            <h2 class="h4">No plugins yet</h2>
+            <p class="text-body-secondary mx-auto jp-measure">
+                Upload plugin archives (<code>.zip</code> or <code>.jar</code>) downloaded from the
+                JetBrains Marketplace or built in-house. For bulk imports use
+                <code>scripts/jetpack-mirror.py</code>.
+            </p>
+            <a class="btn btn-primary" asp-page="/Upload">@Icons.Render("upload") Upload plugins</a>
+        </div>
+    </div>
+} else if (Model.Plugins.Count == 0) {
+    <div class="jp-empty card">
+        <div class="card-body text-center py-5">
+            <div class="jp-empty-icon mb-2">@Icons.Render("search", "jp-icon jp-icon-xl")</div>
+            <h2 class="h5">No plugins match “@Model.Query”</h2>
+            <p class="text-body-secondary">Try a plugin ID, vendor name or tag.</p>
+            <a class="btn btn-outline-secondary" asp-page="/Index">Show all plugins</a>
+        </div>
+    </div>
+} else {
+    <p class="text-body-secondary small mb-2" data-jp-count>
+        @(string.IsNullOrWhiteSpace(Model.Query)
+              ? $"{Format.Number(Model.Plugins.Count)} plugins"
+              : $"{Format.Number(Model.Plugins.Count)} results for “{Model.Query}”")
+    </p>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3" data-jp-cards>
+        @foreach ((PluginEntry plugin, int position) in Model.Plugins.Select((p, i) => (p, i))) {
+            PluginRelease latest = plugin.Latest.Release;
+            string preview = Format.Truncate(PluginEntry.ToPlainText(latest.Description), 180);
+            <div class="col" data-jp-search-text="@($"{plugin.Name} {plugin.Id} {plugin.Vendor} {string.Join(' ', plugin.Tags)}".ToLowerInvariant())">
+                <article class="card jp-card h-100">
+                    <div class="card-body d-flex gap-3">
+                        <partial name="_PluginIcon" model='(plugin, "md", position >= 12)' />
+                        <div class="min-w-0 flex-grow-1">
+                            <h2 class="h6 mb-0 text-truncate">
+                                <a class="stretched-link jp-card-title" asp-page="/Plugin/Index"
+                                   asp-route-xmlId="@plugin.Id">@plugin.Name</a>
+                            </h2>
+                            <div class="small text-body-secondary text-truncate">@(plugin.Vendor ?? "Unknown vendor")</div>
+                            @if (preview.Length > 0) {
+                                <p class="small mt-2 mb-0 jp-clamp-2">@preview</p>
+                            }
+                        </div>
+                    </div>
+                    <div class="card-footer jp-card-footer d-flex flex-wrap align-items-center gap-2 small">
+                        <span class="badge bg-primary-subtle text-primary-emphasis jp-badge-version">v@(latest.Version)</span>
+                        <span class="text-body-secondary" title="Compatible IDE builds of the latest version">
+                            @Icons.Render("cpu") @Format.BuildRange(latest.SinceBuild, latest.UntilBuild)
+                        </span>
+                        <span class="ms-auto text-body-secondary" title="Versions / downloads">
+                            @Icons.Render("layers") @plugin.Releases.Count
+                            <span class="ms-2">@Icons.Render("download") @Format.Number(Model.Downloads(plugin))</span>
+                        </span>
+                    </div>
+                </article>
+            </div>
+        }
+    </div>
+    <div class="jp-empty card d-none" data-jp-no-matches>
+        <div class="card-body text-center py-4 text-body-secondary">No plugins match the filter.</div>
+    </div>
+}
